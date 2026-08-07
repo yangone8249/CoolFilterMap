@@ -123,6 +123,34 @@ setx TEMP D:\temp && setx TMP D:\temp
 설정 후에는 터미널을 새로 열어야 적용된다. Gradle 데몬이 옛 환경변수를 물고
 있으므로 `android/gradlew --stop`으로 한 번 내려주는 것도 필요하다.
 
+### USB로 실기기에 붙이기
+
+`expo run:android`는 PC의 IP를 자동 감지하는데, 공인 IP를 잡아버리면 폰이 Metro에
+접속하지 못한다. USB로 연결돼 있다면 `adb reverse`로 넘기는 편이 확실하다.
+
+```bash
+adb reverse tcp:8081 tcp:8081
+```
+
+폰과 PC가 다른 네트워크에 있어도 USB만 꽂혀 있으면 이걸로 해결된다.
+
+⚠️ 이때 Metro를 `--localhost`로 띄우면 **IPv6(`::1`)에만 바인딩되어** 접속이
+실패한다. adb reverse는 IPv4로 붙기 때문이다. 증상은 앱에서 이렇게 보인다:
+
+```
+java.io.IOException: unexpected end of stream on http://localhost:8081/...
+Caused by: java.io.EOFException: \n not found: limit=0
+```
+
+플래그 없이 띄우면 `0.0.0.0`에 바인딩되어 정상 동작한다.
+
+```bash
+npx expo start --dev-client
+```
+
+확인할 때 `curl http://localhost:8081/status`는 Windows가 `::1`로 먼저 해석해서
+성공해버린다. **`127.0.0.1`로 확인해야** 이 문제가 드러난다.
+
 ## 데이터 파이프라인
 
 ### 스키마 확인 (가장 먼저 할 것)
@@ -170,7 +198,8 @@ npm run data:mock   # 로컬에서 dist/ 결과만 확인
 - [ ] NCP에 패키지명(`com.coolfiltermap.app`) 등록 후 Client ID 발급
 - [x] 마커 클러스터링 (`NaverMapView`의 `clusters` prop)
 - [x] 길찾기 — 네이버지도 → 카카오맵 → 웹 순으로 폴백
-- [ ] 실기기에서 딥링크 동작 확인 (에뮬레이터에는 지도 앱이 없어 검증 불가)
+- [x] 실기기(SM-G998N) 검증 — 지도 렌더링, 원격 데이터 동기화, 클러스터링,
+      거리 계산, 네이버지도 딥링크까지 동작 확인
 - [ ] 목록 화면 (지도 ↔ 리스트 전환)
 - [ ] 초기 DB를 앱 번들에 동봉해 최초 다운로드 제거
 - [ ] 시도별 데이터 분할
