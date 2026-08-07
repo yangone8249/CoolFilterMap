@@ -31,6 +31,10 @@ const inspectMode = process.argv.includes('--inspect');
  */
 const mockMode =
   process.argv.includes('--mock') || process.env.USE_MOCK === 'true';
+/** 건수 급감 방어를 의도적으로 해제한다. 실제로 쉼터가 줄어든 경우에만 쓴다. */
+const allowShrink =
+  process.argv.includes('--allow-shrink') ||
+  process.env.ALLOW_SHRINK === 'true';
 
 async function main() {
   if (!SERVICE_KEY && !mockMode) {
@@ -62,6 +66,8 @@ async function main() {
   const hash = createHash('sha256').update(body).digest('hex').slice(0, 16);
 
   const published = await fetchPublishedManifest();
+  assertNotShrunk(shelters.length, published);
+
   if (published?.hash === hash) {
     console.log(`변경 없음 (hash=${hash}) — 배포를 건너뜁니다.`);
     await setOutput('changed', 'false');
@@ -86,12 +92,37 @@ async function main() {
   await setOutput('changed', 'true');
 }
 
+/** 이 비율 아래로 줄면 수집이 중간에 끊긴 것으로 보고 배포를 막는다. */
+const SHRINK_THRESHOLD = 0.8;
+
+/**
+ * 건수가 갑자기 급감했다면 정상적인 데이터 변경이 아니라 사고일 가능성이 높다.
+ * 페이지네이션이 빈 응답으로 조기 종료됐거나, 지오코딩 한도가 소진돼 좌표를
+ * 못 채운 레코드가 대량으로 걸러진 경우다. 둘 다 에러 없이 조용히 일어나므로
+ * 여기서 명시적으로 막지 않으면 반쪽짜리 데이터가 그대로 배포된다.
+ */
+function assertNotShrunk(count, published) {
+  if (allowShrink) return;
+  if (!published?.count) return; // 최초 배포면 비교 대상이 없다
+
+  const floor = Math.floor(published.count * SHRINK_THRESHOLD);
+  if (count >= floor) return;
+
+  fail(
+    `건수 급감 감지: ${published.count}건 → ${count}건 ` +
+      `(허용 하한 ${floor}건). 수집이 중간에 끊겼을 수 있어 배포를 중단합니다.\n` +
+      `의도한 변경이라면 --allow-shrink 로 다시 실행하세요.`,
+  );
+}
+
 async function readMockRows() {
   const file = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     'mock-shelters.json',
   );
-  return JSON.parse(await readFile(file, 'utf8'));
+  const text = await readFile(file, 'utf8');
+  // Windows 편집기가 붙이는 BOM은 JSON.parse가 못 읽는다.
+  return JSON.parse(text.replace(/^﻿/, ''));
 }
 
 /** 공공데이터 API는 페이지 단위로만 응답하므로 전량을 돌면서 모은다. */
@@ -257,14 +288,21 @@ async function setOutput(key, value) {
   if (file) await appendFile(file, `${key}=${value}\n`);
 }
 
+/**
+ * process.exit()을 바로 부르면 stdout이 비워지기 전에 프로세스가 끊겨
+ * 메시지가 잘리거나 Windows에서 libuv 어서션으로 죽는다. 던지고 최상위에서
+ * exitCode만 세팅해 정상 종료 경로로 빠져나간다.
+ */
 function fail(message) {
-  console.error(`✗ ${message}`);
-  process.exit(1);
+  throw new Error(message);
 }
 
 // 직접 실행할 때만 돈다. 테스트에서 개별 함수를 가져다 쓸 수 있도록.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main();
+  main().catch((error) => {
+    console.error(`✗ ${error.message}`);
+    process.exitCode = 1;
+  });
 }
 
 export { extractRows, normalize, isUsable };
