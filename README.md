@@ -123,6 +123,14 @@ DATA_GO_KR_SERVICE_KEY=발급키 npm run data:inspect
 4. Actions 탭에서 워크플로를 수동 실행(`workflow_dispatch`)해 첫 배포
 5. 배포된 URL을 앱 `.env`의 `EXPO_PUBLIC_SHELTER_MANIFEST_URL`에 넣는다
 
+인증키가 아직 없다면 **목 데이터로 먼저 배포해 파이프라인을 검증**할 수 있다.
+수동 실행 시 `mock` 옵션을 켜면 Secret 없이도 끝까지 돌아간다. 목 데이터도
+원본 API와 같은 형태라 `normalize()`와 좌표 필터링을 동일하게 거친다.
+
+```bash
+npm run data:mock   # 로컬에서 dist/ 결과만 확인
+```
+
 > ⚠️ public repo의 scheduled workflow는 **60일간 저장소 활동이 없으면 자동
 > 비활성화**된다. 오래 손대지 않으면 데이터 갱신이 멈추므로, 멈춘 걸 발견하면
 > Actions 탭에서 다시 활성화한다.

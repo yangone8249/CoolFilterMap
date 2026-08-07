@@ -10,7 +10,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,18 +25,24 @@ const SERVICE_KEY = process.env.DATA_GO_KR_SERVICE_KEY;
 const PUBLISHED_MANIFEST_URL = process.env.PUBLISHED_MANIFEST_URL ?? '';
 
 const inspectMode = process.argv.includes('--inspect');
+/**
+ * 인증키 없이 파이프라인 전체(정규화 → 해시 → 배포)를 검증하기 위한 모드.
+ * 목 데이터도 원본 API와 같은 형태라 normalize/필터링까지 동일하게 거친다.
+ */
+const mockMode =
+  process.argv.includes('--mock') || process.env.USE_MOCK === 'true';
 
 async function main() {
-  if (!SERVICE_KEY) {
-    fail('DATA_GO_KR_SERVICE_KEY 환경변수가 없습니다.');
+  if (!SERVICE_KEY && !mockMode) {
+    fail('DATA_GO_KR_SERVICE_KEY 환경변수가 없습니다. (검증만 하려면 --mock)');
   }
 
   if (inspectMode) {
     return inspect();
   }
 
-  const rows = await fetchAllRows();
-  console.log(`원본 ${rows.length}건 수집`);
+  const rows = mockMode ? await readMockRows() : await fetchAllRows();
+  console.log(`원본 ${rows.length}건 수집${mockMode ? ' (목 데이터)' : ''}`);
 
   const shelters = rows
     .map(normalize)
@@ -78,6 +84,14 @@ async function main() {
 
   console.log(`갱신됨 hash=${hash}, ${shelters.length}건`);
   await setOutput('changed', 'true');
+}
+
+async function readMockRows() {
+  const file = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    'mock-shelters.json',
+  );
+  return JSON.parse(await readFile(file, 'utf8'));
 }
 
 /** 공공데이터 API는 페이지 단위로만 응답하므로 전량을 돌면서 모은다. */

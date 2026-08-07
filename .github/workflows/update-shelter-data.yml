@@ -5,6 +5,11 @@ on:
     # 매일 03:00 KST (18:00 UTC). 정시는 보장되지 않지만 하루 1회라 무관하다.
     - cron: '0 18 * * *'
   workflow_dispatch: # 수동 실행
+    inputs:
+      mock:
+        description: '목 데이터로 실행 (인증키 없이 파이프라인만 검증)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,6 +39,8 @@ jobs:
           DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
           # 이미 배포된 manifest와 해시를 비교해 변경이 없으면 배포를 건너뛴다.
           PUBLISHED_MANIFEST_URL: ${{ vars.PUBLISHED_MANIFEST_URL }}
+          # schedule로 돌 때는 빈 값이므로 항상 실데이터로 동작한다.
+          USE_MOCK: ${{ inputs.mock }}
         run: node scripts/build-shelter-data.mjs
 
       - name: Upload artifact

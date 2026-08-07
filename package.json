@@ -22,7 +22,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "data:build": "node scripts/build-shelter-data.mjs",
-    "data:inspect": "node scripts/build-shelter-data.mjs --inspect"
+    "data:inspect": "node scripts/build-shelter-data.mjs --inspect",
+    "data:mock": "node scripts/build-shelter-data.mjs --mock"
   },
   "private": true
 }
