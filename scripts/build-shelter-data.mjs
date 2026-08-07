@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 /**
- * 전국무더위쉼터표준데이터를 수집해 앱이 내려받을 정적 파일로 가공한다.
+ * 전국 무더위쉼터 데이터를 수집해 앱이 내려받을 정적 파일로 가공한다.
  * GitHub Actions가 하루 1회 실행한다.
  *
  *   node scripts/build-shelter-data.mjs            빌드
  *   node scripts/build-shelter-data.mjs --inspect  원본 응답 구조만 출력 (스키마 확인용)
+ *
+ * 출처는 행정안전부 재난안전데이터공유플랫폼(safetydata.go.kr)이다.
+ * data.go.kr의 HeatWaveShelter 계열 엔드포인트와는 다른 플랫폼이며,
+ * 그쪽은 현재 NO_OPENAPI_SERVICE_ERROR로 폐기된 상태다.
  *
  * 인증키는 GitHub Secrets(DATA_GO_KR_SERVICE_KEY)에서 온다. 앱에는 절대 넣지 않는다.
  */
@@ -15,8 +19,7 @@ import { appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const API_URL =
-  'http://apis.data.go.kr/1741000/HeatWaveShelter3/getHeatWaveShelterList3';
+const API_URL = 'https://www.safetydata.go.kr/V2/api/DSSP-IF-10942';
 const PAGE_SIZE = 1000;
 const OUT_DIR = 'dist';
 
@@ -125,22 +128,34 @@ async function readMockRows() {
   return JSON.parse(text.replace(/^﻿/, ''));
 }
 
-/** 공공데이터 API는 페이지 단위로만 응답하므로 전량을 돌면서 모은다. */
+/** API는 페이지 단위로만 응답하므로 totalCount를 채울 때까지 돈다. */
 async function fetchAllRows() {
   const all = [];
+  let totalCount = null;
 
   for (let pageNo = 1; ; pageNo++) {
     const json = await fetchPage(pageNo);
     const rows = extractRows(json);
 
+    if (totalCount === null) {
+      totalCount = Number(json.totalCount);
+      console.log(`  totalCount=${totalCount}`);
+    }
+
     if (rows.length === 0) break;
     all.push(...rows);
     console.log(`  page ${pageNo}: ${rows.length}건 (누적 ${all.length})`);
 
+    if (Number.isFinite(totalCount) && all.length >= totalCount) break;
     if (rows.length < PAGE_SIZE) break;
-    if (pageNo > 200) {
-      fail('페이지가 200을 넘었습니다. 종료 조건을 확인하세요.');
+    if (pageNo > 500) {
+      fail('페이지가 500을 넘었습니다. 종료 조건을 확인하세요.');
     }
+  }
+
+  // 페이지네이션이 중간에 끊기면 부분 데이터가 조용히 배포된다.
+  if (Number.isFinite(totalCount) && all.length !== totalCount) {
+    fail(`수집 누락: totalCount=${totalCount}인데 ${all.length}건만 모았습니다.`);
   }
 
   return all;
@@ -152,63 +167,51 @@ async function fetchPage(pageNo) {
   url.search = new URLSearchParams({
     pageNo: String(pageNo),
     numOfRows: String(PAGE_SIZE),
-    type: 'json',
+    returnType: 'json',
   }).toString();
   const withKey = `${url.toString()}&serviceKey=${SERVICE_KEY}`;
 
   const res = await fetch(withKey);
+  // 실패 사유는 본문에 담겨 온다. 상태 코드만 보고 죽으면 원인을 알 수 없다.
+  const text = await res.text();
+
   if (!res.ok) {
-    fail(`API ${res.status} ${res.statusText}`);
+    fail(`API ${res.status} ${res.statusText}\n응답 본문:\n${text.slice(0, 800)}`);
   }
 
-  const text = await res.text();
+  let json;
   try {
-    return JSON.parse(text);
+    json = JSON.parse(text);
   } catch {
-    // 인증키 오류 등은 JSON이 아니라 XML로 돌아오는 경우가 많다
+    // 인증키 오류 등은 JSON이 아니라 XML/HTML로 돌아오는 경우가 있다
     fail(`JSON 파싱 실패. 응답 앞부분:\n${text.slice(0, 500)}`);
   }
+
+  // HTTP 200이어도 header에 에러가 담겨 오므로 반드시 확인한다.
+  const header = json?.header;
+  if (header && header.resultCode !== '00') {
+    fail(
+      `API 오류 resultCode=${header.resultCode} ${header.resultMsg ?? ''} ${header.errorMsg ?? ''}`,
+    );
+  }
+
+  return json;
 }
 
-/**
- * 표준데이터 응답은 { HeatWaveShelter: [{ head: [...] }, { row: [...] }] } 형태로
- * 감싸여 오는 경우가 많지만 확정적이지 않다. 레코드 배열을 찾아서 꺼낸다.
- */
+/** 응답 봉투는 { header, totalCount, body: [...] } 형태다. */
 function extractRows(json) {
-  const found = [];
-
-  const walk = (node) => {
-    if (Array.isArray(node)) {
-      const objects = node.filter(
-        (v) => v && typeof v === 'object' && !Array.isArray(v),
-      );
-      // head/result 같은 메타 배열이 아니라 실제 레코드로 보이는 것만
-      if (objects.length === node.length && node.length > 0 && looksLikeRecord(node[0])) {
-        found.push(...node);
-        return;
-      }
-      node.forEach(walk);
-      return;
-    }
-    if (node && typeof node === 'object') {
-      Object.values(node).forEach(walk);
-    }
-  };
-
-  walk(json);
-  return found;
-}
-
-function looksLikeRecord(obj) {
-  const keys = Object.keys(obj).map((k) => k.toLowerCase());
-  return keys.some((k) => k.includes('nm') || k.includes('name')) && keys.length > 3;
+  const body = json?.body;
+  if (Array.isArray(body)) return body;
+  if (body == null) return [];
+  fail(`예상과 다른 응답 구조입니다: body가 배열이 아님 (${typeof body})`);
 }
 
 /**
- * TODO: 인증키를 발급받아 --inspect로 실제 필드명을 확인한 뒤 확정할 것.
- * 위경도가 응답에 없다면 여기서 네이버 Geocoding API를 호출해 채워야 한다.
- * (앱이 아니라 이 스크립트에서 하는 이유: 5만 건을 1회만 변환하면 되고,
- *  Geocoding 키도 앱에 노출되지 않는다.)
+ * safetydata.go.kr의 원본 필드명은 대문자 스네이크다.
+ * 위경도(LA/LO)가 응답에 포함되어 있어 지오코딩이 필요 없다.
+ *
+ * TODO: FCLTY_TY는 '001' 같은 코드값이다. API 명세서의 코드표를 확인해
+ * 사람이 읽을 수 있는 라벨로 매핑할 것. 확인 전까지는 원본 코드를 그대로 둔다.
  */
 function normalize(raw) {
   const pick = (...keys) => {
@@ -218,17 +221,15 @@ function normalize(raw) {
     return null;
   };
 
-  const lat = pick('la', 'lat', 'latitude', 'yCrdnt', 'ycord');
-  const lng = pick('lo', 'lng', 'longitude', 'xCrdnt', 'xcord');
-
   return {
-    id: String(pick('rstrFcltyNo', 'id', 'fcltyNo') ?? ''),
-    name: String(pick('rstrNm', 'name', 'fcltyNm') ?? ''),
-    address: String(pick('rnDtlAdres', 'address', 'dtlAdres', 'adres') ?? ''),
-    lat: Number(lat),
-    lng: Number(lng),
-    facilityType: pick('fcltyType', 'facilityType', 'fcltySclas'),
-    capacity: toIntOrNull(pick('usePsblNmpr', 'capacity')),
+    id: String(pick('RSTR_FCLTY_NO') ?? ''),
+    name: String(pick('RSTR_NM') ?? ''),
+    // 도로명주소를 우선하고, 없으면 지번주소로 떨어진다.
+    address: String(pick('RN_DTL_ADRES', 'DTL_ADRES') ?? ''),
+    lat: Number(pick('LA')),
+    lng: Number(pick('LO')),
+    facilityType: pick('FCLTY_TY'),
+    capacity: toIntOrNull(pick('USE_PSBL_NMPR')),
   };
 }
 

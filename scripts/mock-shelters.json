@@ -1,83 +1,83 @@
 [
   {
-    "rstrFcltyNo": "MOCK-001",
-    "rstrNm": "[목] 시청역 주민센터",
-    "rnDtlAdres": "서울특별시 중구",
-    "fcltyType": "주민센터",
-    "usePsblNmpr": "40",
-    "la": "37.5665",
-    "lo": "126.9780"
+    "RSTR_FCLTY_NO": 900001,
+    "RSTR_NM": "[목] 시청역 주민센터",
+    "RN_DTL_ADRES": "서울특별시 중구 세종대로 110",
+    "FCLTY_TY": "001",
+    "USE_PSBL_NMPR": 40,
+    "LA": 37.5665,
+    "LO": 126.978
   },
   {
-    "rstrFcltyNo": "MOCK-002",
-    "rstrNm": "[목] 을지로 경로당",
-    "rnDtlAdres": "서울특별시 중구",
-    "fcltyType": "경로당",
-    "usePsblNmpr": "25",
-    "la": "37.5662",
-    "lo": "126.9912"
+    "RSTR_FCLTY_NO": 900002,
+    "RSTR_NM": "[목] 을지로 경로당",
+    "RN_DTL_ADRES": "서울특별시 중구 을지로 66",
+    "FCLTY_TY": "002",
+    "USE_PSBL_NMPR": 25,
+    "LA": 37.5662,
+    "LO": 126.9912
   },
   {
-    "rstrFcltyNo": "MOCK-003",
-    "rstrNm": "[목] 광화문 복지회관",
-    "rnDtlAdres": "서울특별시 종로구",
-    "fcltyType": "복지회관",
-    "usePsblNmpr": "60",
-    "la": "37.5759",
-    "lo": "126.9769"
+    "RSTR_FCLTY_NO": 900003,
+    "RSTR_NM": "[목] 광화문 복지회관",
+    "RN_DTL_ADRES": "서울특별시 종로구 세종대로 175",
+    "FCLTY_TY": "003",
+    "USE_PSBL_NMPR": 60,
+    "LA": 37.5759,
+    "LO": 126.9769
   },
   {
-    "rstrFcltyNo": "MOCK-004",
-    "rstrNm": "[목] 남대문 마을회관",
-    "rnDtlAdres": "서울특별시 중구",
-    "fcltyType": "마을회관",
-    "usePsblNmpr": "30",
-    "la": "37.5594",
-    "lo": "126.9755"
+    "RSTR_FCLTY_NO": 900004,
+    "RSTR_NM": "[목] 남대문 마을회관",
+    "RN_DTL_ADRES": "서울특별시 중구 남대문로 지하 4",
+    "FCLTY_TY": "002",
+    "USE_PSBL_NMPR": 30,
+    "LA": 37.5594,
+    "LO": 126.9755
   },
   {
-    "rstrFcltyNo": "MOCK-005",
-    "rstrNm": "[목] 서울역 보건소",
-    "rnDtlAdres": "서울특별시 용산구",
-    "fcltyType": "보건소",
-    "usePsblNmpr": "50",
-    "la": "37.5547",
-    "lo": "126.9707"
+    "RSTR_FCLTY_NO": 900005,
+    "RSTR_NM": "[목] 서울역 보건소",
+    "RN_DTL_ADRES": "서울특별시 용산구 한강대로 405",
+    "FCLTY_TY": "004",
+    "USE_PSBL_NMPR": 50,
+    "LA": 37.5547,
+    "LO": 126.9707
   },
   {
-    "rstrFcltyNo": "MOCK-006",
-    "rstrNm": "[목] 명동 노인시설",
-    "rnDtlAdres": "서울특별시 중구",
-    "fcltyType": "노인시설",
-    "usePsblNmpr": "35",
-    "la": "37.5636",
-    "lo": "126.9827"
+    "RSTR_FCLTY_NO": 900006,
+    "RSTR_NM": "[목] 명동 노인시설",
+    "RN_DTL_ADRES": "서울특별시 중구 명동길 74",
+    "FCLTY_TY": "001",
+    "USE_PSBL_NMPR": 35,
+    "LA": 37.5636,
+    "LO": 126.9827
   },
   {
-    "rstrFcltyNo": "MOCK-007",
-    "rstrNm": "[목] 동대문 주민센터",
-    "rnDtlAdres": "서울특별시 종로구",
-    "fcltyType": "주민센터",
-    "usePsblNmpr": "45",
-    "la": "37.5714",
-    "lo": "127.0094"
+    "RSTR_FCLTY_NO": 900007,
+    "RSTR_NM": "[목] 동대문 주민센터",
+    "RN_DTL_ADRES": "서울특별시 종로구 종로 266",
+    "FCLTY_TY": "003",
+    "USE_PSBL_NMPR": 45,
+    "LA": 37.5714,
+    "LO": 127.0094
   },
   {
-    "rstrFcltyNo": "MOCK-008",
-    "rstrNm": "[목] 여의도 복지관",
-    "rnDtlAdres": "서울특별시 영등포구",
-    "fcltyType": "복지회관",
-    "usePsblNmpr": "80",
-    "la": "37.5219",
-    "lo": "126.9245"
+    "RSTR_FCLTY_NO": 900008,
+    "RSTR_NM": "[목] 여의도 복지관",
+    "RN_DTL_ADRES": "서울특별시 영등포구 여의공원로 68",
+    "FCLTY_TY": "003",
+    "USE_PSBL_NMPR": 80,
+    "LA": 37.5219,
+    "LO": 126.9245
   },
   {
-    "rstrFcltyNo": "MOCK-009",
-    "rstrNm": "[목] 좌표없는 쉼터 (필터링 검증용)",
-    "rnDtlAdres": "서울특별시 어딘가",
-    "fcltyType": "주민센터",
-    "usePsblNmpr": "10",
-    "la": "",
-    "lo": ""
+    "RSTR_FCLTY_NO": 900009,
+    "RSTR_NM": "[목] 좌표없는 쉼터 (필터링 검증용)",
+    "RN_DTL_ADRES": "서울특별시 어딘가",
+    "FCLTY_TY": "001",
+    "USE_PSBL_NMPR": 10,
+    "LA": null,
+    "LO": null
   }
 ]

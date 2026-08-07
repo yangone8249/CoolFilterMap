@@ -67,20 +67,18 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 /**
- * Cloud Functions가 이미 정규화해서 올리는 것이 원칙이지만,
- * 앱 쪽에서도 한 번 더 방어한다.
- *
- * TODO: 공공데이터 인증키를 받아 실제 응답 스키마를 확인한 뒤 필드명을 확정할 것.
- * 특히 위경도가 응답에 없다면 파이프라인에서 지오코딩을 거쳐야 한다.
+ * 원본 API의 필드 매핑은 파이프라인(scripts/build-shelter-data.mjs)이 끝내고
+ * 올리므로, 여기서는 타입만 다시 맞춘다. 배포본이 깨졌을 때 앱이 통째로
+ * 죽지 않도록 하는 방어선이다.
  */
 function normalize(raw: any): Shelter {
   return {
-    id: String(raw.id ?? raw.rstrFcltyNo ?? ''),
-    name: String(raw.name ?? raw.rstrNm ?? ''),
-    address: String(raw.address ?? raw.rnDtlAdres ?? ''),
-    lat: Number(raw.lat ?? raw.la),
-    lng: Number(raw.lng ?? raw.lo),
-    facilityType: raw.facilityType ?? raw.fcltyType ?? null,
+    id: String(raw.id ?? ''),
+    name: String(raw.name ?? ''),
+    address: String(raw.address ?? ''),
+    lat: Number(raw.lat),
+    lng: Number(raw.lng),
+    facilityType: raw.facilityType ?? null,
     capacity: raw.capacity != null ? Number(raw.capacity) : null,
   };
 }
