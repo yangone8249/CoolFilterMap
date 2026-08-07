@@ -71,35 +71,59 @@ export async function findNearby(
     .slice(0, limit);
 }
 
+const COLUMN_COUNT = 7;
+/**
+ * 한 INSERT에 넣을 행 수. 왕복 횟수를 줄일수록 빨라지지만 SQLite의 변수 상한에
+ * 걸린다. 요즘 SQLite(3.32+)의 상한은 32766이라 7컬럼 × 500행 = 3500개면 여유가
+ * 있다. 100행일 때 6만 건에 9초가 걸렸다.
+ */
+const INSERT_CHUNK = 500;
+
 /**
  * 전체 교체. 다운로드 도중 앱이 죽어도 DB가 반쯤 갱신된 상태로 남지 않도록
  * 트랜잭션으로 묶는다.
+ *
+ * 행마다 executeAsync를 부르면 6만 건에 JS↔네이티브 왕복이 6만 번 발생해
+ * 실기기에서 40초가 넘게 걸린다. 여러 행을 한 INSERT로 묶어 왕복을 줄인다.
  */
 export async function replaceAllShelters(shelters: Shelter[]): Promise<void> {
   const db = await getDb();
 
   await db.withTransactionAsync(async () => {
     await db.runAsync('DELETE FROM shelters');
+    // 인덱스를 걸어둔 채로 대량 삽입하면 행마다 B-tree를 갱신한다.
+    // 넣고 나서 한 번에 만드는 편이 빠르다. 트랜잭션 안이라 중간에 죽어도
+    // 인덱스가 사라진 상태로 남지 않는다.
+    await db.execAsync('DROP INDEX IF EXISTS idx_shelters_lat_lng');
 
-    const stmt = await db.prepareAsync(
-      `INSERT INTO shelters (id, name, address, lat, lng, facility_type, capacity)
-       VALUES ($id, $name, $address, $lat, $lng, $facilityType, $capacity)`,
-    );
+    for (let i = 0; i < shelters.length; i += INSERT_CHUNK) {
+      const chunk = shelters.slice(i, i + INSERT_CHUNK);
+      const placeholders = new Array(chunk.length)
+        .fill(`(${new Array(COLUMN_COUNT).fill('?').join(',')})`)
+        .join(',');
 
-    try {
-      for (const s of shelters) {
-        await stmt.executeAsync({
-          $id: s.id,
-          $name: s.name,
-          $address: s.address,
-          $lat: s.lat,
-          $lng: s.lng,
-          $facilityType: s.facilityType,
-          $capacity: s.capacity,
-        });
+      const params: (string | number | null)[] = [];
+      for (const s of chunk) {
+        params.push(
+          s.id,
+          s.name,
+          s.address,
+          s.lat,
+          s.lng,
+          s.facilityType,
+          s.capacity,
+        );
       }
-    } finally {
-      await stmt.finalizeAsync();
+
+      await db.runAsync(
+        `INSERT INTO shelters (id, name, address, lat, lng, facility_type, capacity)
+         VALUES ${placeholders}`,
+        params,
+      );
     }
+
+    await db.execAsync(
+      'CREATE INDEX IF NOT EXISTS idx_shelters_lat_lng ON shelters(lat, lng)',
+    );
   });
 }

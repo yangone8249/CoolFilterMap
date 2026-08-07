@@ -34,11 +34,22 @@ export async function syncShelters(): Promise<SyncResult> {
       return { status: 'up-to-date' };
     }
 
+    // 최초 동기화는 전량을 메모리에 올렸다가 SQLite로 옮기는 구간이라
+    // 저사양 기기에서 가장 위험하다. 어느 단계가 무거운지 남겨둔다.
     const dataUrl = new URL(manifest.url, REMOTE.manifestUrl).toString();
+
+    const t0 = Date.now();
     const raw = await fetchJson<unknown[]>(dataUrl);
+    const t1 = Date.now();
     const shelters = raw.map(normalize).filter(isUsable);
+    const t2 = Date.now();
 
     await replaceAllShelters(shelters);
+    const t3 = Date.now();
+    console.log(
+      `[sync] ${shelters.length}건 — 다운로드+파싱 ${t1 - t0}ms, ` +
+        `정규화 ${t2 - t1}ms, SQLite 저장 ${t3 - t2}ms`,
+    );
     await setMeta(META_KEYS.dataHash, manifest.hash);
     await setMeta(META_KEYS.syncedAt, new Date().toISOString());
 
