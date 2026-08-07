@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@mj-studio/react-native-naver-map": "^2.9.0",
     "expo": "~57.0.10",
+    "expo-dev-client": "~57.0.10",
+    "expo-location": "~57.0.7",
+    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.2"
@@ -16,7 +20,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "data:build": "node scripts/build-shelter-data.mjs",
+    "data:inspect": "node scripts/build-shelter-data.mjs --inspect"
   },
   "private": true
 }

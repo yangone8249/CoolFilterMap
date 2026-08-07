@@ -1,0 +1,54 @@
+name: Update shelter data
+
+on:
+  schedule:
+    # 매일 03:00 KST (18:00 UTC). 정시는 보장되지 않지만 하루 1회라 무관하다.
+    - cron: '0 18 * * *'
+  workflow_dispatch: # 수동 실행
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.build.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build shelter data
+        id: build
+        env:
+          # 공공데이터 서비스키는 Secrets에만 둔다. 로그에도 찍히지 않는다.
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+          # 이미 배포된 manifest와 해시를 비교해 변경이 없으면 배포를 건너뛴다.
+          PUBLISHED_MANIFEST_URL: ${{ vars.PUBLISHED_MANIFEST_URL }}
+        run: node scripts/build-shelter-data.mjs
+
+      - name: Upload artifact
+        if: steps.build.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

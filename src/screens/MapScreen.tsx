@@ -1,0 +1,184 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { NaverMapView, type Region } from '@mj-studio/react-native-naver-map';
+
+import { CLUSTER, INITIAL_CAMERA, SEARCH } from '../config';
+import { findInBounds } from '../data/shelterRepository';
+import { boundsFromRegion, formatDistance, haversine } from '../geo/distance';
+import { useCurrentLocation } from '../hooks/useCurrentLocation';
+import { useShelterData } from '../hooks/useShelterData';
+import { openDirections } from '../lib/directions';
+import type { Shelter } from '../types';
+
+export function MapScreen() {
+  const { ready, revision, count, syncResult } = useShelterData();
+  const { location, permission } = useCurrentLocation();
+
+  const [visible, setVisible] = useState<Shelter[]>([]);
+  const [region, setRegion] = useState<Region | null>(null);
+  const [selected, setSelected] = useState<Shelter | null>(null);
+
+  // 카메라가 멈췄을 때만 발생하므로 별도 debounce가 필요 없다.
+  const handleCameraIdle = useCallback(
+    (params: { region: Region }) => setRegion(params.region),
+    [],
+  );
+
+  // 화면에 보이는 영역만 SQL로 조회한다. 전체를 메모리에 올리지 않는다.
+  useEffect(() => {
+    if (!ready || !region) return;
+
+    let cancelled = false;
+    findInBounds(boundsFromRegion(region), SEARCH.maxMarkers).then((rows) => {
+      if (!cancelled) setVisible(rows);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, region, revision]);
+
+  // 마커 수백 개를 낱개로 그리면 저사양 기기에서 프레임이 무너진다.
+  // 네이티브 클러스터링에 맡기고, 탭된 leaf만 id로 되짚는다.
+  const clusters = useMemo(
+    () => [
+      {
+        markers: visible.map((s) => ({
+          identifier: s.id,
+          latitude: s.lat,
+          longitude: s.lng,
+        })),
+        screenDistance: CLUSTER.screenDistance,
+        maxZoom: CLUSTER.maxZoom,
+      },
+    ],
+    [visible],
+  );
+
+  const byId = useMemo(
+    () => new Map(visible.map((s) => [s.id, s])),
+    [visible],
+  );
+
+  const handleTapLeaf = useCallback(
+    ({ markerIdentifier }: { markerIdentifier: string }) =>
+      setSelected(byId.get(markerIdentifier) ?? null),
+    [byId],
+  );
+
+  const handleDirections = useCallback(async () => {
+    if (!selected) return;
+    const opened = await openDirections(selected);
+    if (!opened) {
+      Alert.alert('길찾기를 열 수 없습니다', '지도 앱을 실행하지 못했습니다.');
+    }
+  }, [selected]);
+
+  if (!ready) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  const distance =
+    selected && location ? haversine(location, selected) : null;
+
+  return (
+    <View style={styles.container}>
+      <NaverMapView
+        style={StyleSheet.absoluteFill}
+        initialCamera={
+          location
+            ? { latitude: location.lat, longitude: location.lng, zoom: 15 }
+            : INITIAL_CAMERA
+        }
+        isShowLocationButton={permission === 'granted'}
+        onCameraIdle={handleCameraIdle}
+        onTapMap={() => setSelected(null)}
+        onTapClusterLeaf={handleTapLeaf}
+        clusters={clusters}
+      />
+
+      <View style={styles.statusBar} pointerEvents="none">
+        <Text style={styles.statusText}>
+          보이는 쉼터 {visible.length} / 전체 {count}
+          {syncResult?.status === 'seeded-mock' ? ' · 목 데이터' : ''}
+        </Text>
+      </View>
+
+      {selected && (
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>{selected.name}</Text>
+          <Text style={styles.sheetBody}>{selected.address}</Text>
+          <Text style={styles.sheetMeta}>
+            {[
+              selected.facilityType,
+              selected.capacity ? `최대 ${selected.capacity}명` : null,
+              distance != null ? formatDistance(distance) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+
+          <Pressable
+            style={styles.button}
+            onPress={handleDirections}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>길찾기</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  statusBar: {
+    position: 'absolute',
+    top: 56,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statusText: { color: '#fff', fontSize: 12 },
+  sheet: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 32,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    gap: 4,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  sheetTitle: { fontSize: 17, fontWeight: '600' },
+  sheetBody: { fontSize: 14, color: '#444' },
+  sheetMeta: { fontSize: 13, color: '#777' },
+  button: {
+    marginTop: 12,
+    backgroundColor: '#0068c3',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+});
