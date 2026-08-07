@@ -1,7 +1,8 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 // 지도 SDK는 앱이 네이버 서버와 직접 통신하므로 client_id는 앱에 포함될 수밖에 없다.
-// 숨기는 대신 NCP 콘솔에서 패키지명 + SHA-1 지문으로 사용처를 제한한다.
+// 숨기는 대신 NCP 콘솔에 등록한 패키지명으로 사용처를 제한한다.
+// 등록한 패키지명과 다르면 네이버가 401로 거부한다.
 const NAVER_MAP_CLIENT_ID = process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
 
 // TODO: NCP에 앱을 등록하기 전에 확정할 것. 등록 후에는 변경이 번거롭다.

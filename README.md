@@ -32,7 +32,7 @@ API 쿼터를 소모하지 않고, 공공데이터 API가 죽어도 앱은 정�
 **키는 클라이언트에 두지 않는다.** 공공데이터 서비스키는 GitHub Secrets에만 있다.
 `EXPO_PUBLIC_` 환경변수는 JS 번들에 평문으로 박혀 APK 디컴파일로 노출되므로
 감춰야 하는 값을 넣으면 안 된다. 네이버 지도 Client ID는 지도 SDK가 앱에서 직접
-통신하는 구조상 포함될 수밖에 없으므로, 대신 NCP 콘솔에서 패키지명 + SHA-1 지문으로
+통신하는 구조상 포함될 수밖에 없으므로, 대신 NCP 콘솔에 등록한 패키지명으로
 사용처를 제한한다.
 
 **메모리가 아니라 SQLite에 담는다.** 5~6만 건을 `JSON.parse`해 배열로 들고 있으면
@@ -141,7 +141,7 @@ npm run data:mock   # 로컬에서 dist/ 결과만 확인
 - [ ] **응답에 위경도가 있는지 확인** — 없으면 파이프라인에 네이버 Geocoding 추가
 - [ ] `normalize()` 필드명 확정 (스크립트/앱 양쪽)
 - [ ] GitHub Pages 활성화 + Secrets 등록 + 첫 배포
-- [ ] NCP에 패키지명 + SHA-1 지문 등록 후 Client ID 발급
+- [ ] NCP에 패키지명(`com.coolfiltermap.app`) 등록 후 Client ID 발급
 - [x] 마커 클러스터링 (`NaverMapView`의 `clusters` prop)
 - [x] 길찾기 — 네이버지도 → 카카오맵 → 웹 순으로 폴백
 - [ ] 실기기에서 딥링크 동작 확인 (에뮬레이터에는 지도 앱이 없어 검증 불가)
