@@ -8,6 +8,11 @@ const NAVER_MAP_CLIENT_ID = process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
 // TODO: NCP에 앱을 등록하기 전에 확정할 것. 등록 후에는 변경이 번거롭다.
 const BUNDLE_ID = 'com.coolfiltermap.app';
 
+// 네이버 지도 SDK(com.naver.maps:map-sdk)는 Maven Central이 아니라 네이버 자체
+// 저장소에 있다. 지도 라이브러리가 의존성만 선언하고 저장소는 앱이 추가하도록
+// 되어 있어, 이게 없으면 "Could not find com.naver.maps:map-sdk"로 빌드가 깨진다.
+const NAVER_MAVEN_REPO = 'https://repository.map.naver.com/archive/maven';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'CoolFilterMap',
@@ -25,6 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-sqlite',
     'expo-dev-client',
+    ['expo-build-properties', { android: { extraMavenRepos: [NAVER_MAVEN_REPO] } }],
     ['@mj-studio/react-native-naver-map', { client_id: NAVER_MAP_CLIENT_ID }],
     [
       'expo-location',

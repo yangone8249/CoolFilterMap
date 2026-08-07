@@ -97,6 +97,32 @@ npm install
 npx expo run:android
 ```
 
+### 한글 Windows에서 빌드하기
+
+Android NDK 빌드는 경로에 non-ASCII 문자가 섞이면 깨진다. 두 곳을 봐야 한다.
+
+**프로젝트 경로** — 한글이나 공백이 없는 곳에 두어야 한다. Gradle이 아예
+`Your project path contains non-ASCII characters`로 거부한다.
+
+**TEMP 경로** — 사용자명이 한글이면(`C:\Users\홍길동\AppData\Local\Temp`) 더
+고약하다. AGP가 생성하는 `prefab_command.bat` 안에 그 경로가 박히는데, cmd.exe가
+한글을 OEM 코드페이지로 읽으면서 바이트 오프셋이 틀어지고 `^` 줄바꿈 파싱이
+깨진다. 증상은 엉뚱하다:
+
+```
+'ass-path' is not recognized as an internal or external command
+```
+
+`--class-path`가 `ass-path`로 잘린 것이다. 경로 문제로 안 보여서 헤매기 쉽다.
+빌드 전에 TEMP를 ASCII 경로로 돌려두면 된다:
+
+```bash
+setx TEMP D:\temp && setx TMP D:\temp
+```
+
+설정 후에는 터미널을 새로 열어야 적용된다. Gradle 데몬이 옛 환경변수를 물고
+있으므로 `android/gradlew --stop`으로 한 번 내려주는 것도 필요하다.
+
 ## 데이터 파이프라인
 
 ### 스키마 확인 (가장 먼저 할 것)
