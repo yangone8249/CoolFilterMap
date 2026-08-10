@@ -7,10 +7,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { NaverMapView, type Region } from '@mj-studio/react-native-naver-map';
+import {
+  NaverMapView,
+  type Camera,
+  type Region,
+} from '@mj-studio/react-native-naver-map';
 
 import { CLUSTER, INITIAL_CAMERA, SEARCH } from '../config';
-import { findInBounds } from '../data/shelterRepository';
+import { countInBounds, findInBounds } from '../data/shelterRepository';
 import { boundsFromRegion, formatDistance, haversine } from '../geo/distance';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { useShelterData } from '../hooks/useShelterData';
@@ -23,28 +27,50 @@ export function MapScreen() {
   const { location, permission } = useCurrentLocation();
 
   const [visible, setVisible] = useState<Shelter[]>([]);
-  const [region, setRegion] = useState<Region | null>(null);
+  /** 화면 범위 안의 실제 쉼터 수. visible.length는 상한에 잘리므로 따로 센다. */
+  const [totalInView, setTotalInView] = useState(0);
+  const [camera, setCamera] = useState<{ region: Region; zoom: number } | null>(
+    null,
+  );
   const [selected, setSelected] = useState<Shelter | null>(null);
 
   // 카메라가 멈췄을 때만 발생하므로 별도 debounce가 필요 없다.
   const handleCameraIdle = useCallback(
-    (params: { region: Region }) => setRegion(params.region),
+    (params: Camera & { region: Region }) =>
+      setCamera({ region: params.region, zoom: params.zoom ?? 0 }),
     [],
   );
 
+  const markersHidden = totalInView > SEARCH.maxMarkers;
+
   // 화면에 보이는 영역만 SQL로 조회한다. 전체를 메모리에 올리지 않는다.
   useEffect(() => {
-    if (!ready || !region) return;
+    if (!ready || !camera) return;
 
     let cancelled = false;
-    findInBounds(boundsFromRegion(region), SEARCH.maxMarkers).then((rows) => {
+    const bounds = boundsFromRegion(camera.region);
+
+    (async () => {
+      // 먼저 진짜 개수를 센다. 마커를 안 그릴 때도 몇 곳인지는 알려준다.
+      const total = await countInBounds(bounds);
+      if (cancelled) return;
+      setTotalInView(total);
+
+      // 다 못 그릴 양이면 일부만 그리는 대신 확대를 유도한다.
+      if (total > SEARCH.maxMarkers) {
+        setVisible([]);
+        setSelected(null);
+        return;
+      }
+
+      const rows = await findInBounds(bounds, SEARCH.maxMarkers);
       if (!cancelled) setVisible(rows);
-    });
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [ready, region, revision]);
+  }, [ready, camera, revision]);
 
   // 마커 수백 개를 낱개로 그리면 저사양 기기에서 프레임이 무너진다.
   // 네이티브 클러스터링에 맡기고, 탭된 leaf만 id로 되짚는다.
@@ -93,6 +119,12 @@ export function MapScreen() {
   const distance =
     selected && location ? haversine(location, selected) : null;
 
+  // 배지는 항상 진짜 개수를 말한다. 마커 수를 세어 보여주면 상한에 잘렸을 때
+  // 거짓말이 된다.
+  const statusText = markersHidden
+    ? `이 영역에 ${totalInView.toLocaleString()}곳 · 확대해서 보기`
+    : `보이는 쉼터 ${totalInView.toLocaleString()} / 전체 ${count.toLocaleString()}`;
+
   return (
     <View style={styles.container}>
       <NaverMapView
@@ -111,7 +143,7 @@ export function MapScreen() {
 
       <View style={styles.statusBar} pointerEvents="none">
         <Text style={styles.statusText}>
-          보이는 쉼터 {visible.length} / 전체 {count}
+          {statusText}
           {syncResult?.status === 'seeded-mock' ? ' · 목 데이터' : ''}
         </Text>
       </View>

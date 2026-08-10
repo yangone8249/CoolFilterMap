@@ -31,6 +31,24 @@ export async function countShelters(): Promise<number> {
 }
 
 /**
+ * 사각 영역 안의 실제 쉼터 수.
+ *
+ * findInBounds는 LIMIT으로 잘라오므로 그 결과 길이를 개수로 쓰면 상한에
+ * 걸렸을 때 거짓말이 된다. 화면에 숫자를 보여줄 때는 이걸 쓴다.
+ * 인덱스만 타므로 행을 가져오지 않아 싸다.
+ */
+export async function countInBounds(bounds: Bounds): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM shelters
+      WHERE lat BETWEEN ? AND ?
+        AND lng BETWEEN ? AND ?`,
+    [bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng],
+  );
+  return row?.n ?? 0;
+}
+
+/**
  * 사각 영역 안의 쉼터를 조회한다.
  * 전체를 메모리에 올리지 않고 인덱스로 걸러낸 것만 가져오는 것이 요점.
  */
