@@ -1,3 +1,5 @@
+import { Asset } from 'expo-asset';
+import { Directory, File } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
 
 const DB_NAME = 'shelters.db';
@@ -10,12 +12,43 @@ let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
  */
 export function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DB_NAME).then(async (db) => {
+    dbPromise = (async () => {
+      await restoreBundledDatabase();
+      const db = await SQLite.openDatabaseAsync(DB_NAME);
       await migrate(db);
       return db;
-    });
+    })();
   }
   return dbPromise;
+}
+
+/**
+ * 설치 후 첫 실행이면 앱에 동봉된 스냅샷 DB를 복사해 쓴다.
+ *
+ * 이게 없으면 6만 건을 내려받아 넣는 동안(약 7초) 빈 지도가 보이고, 인터넷이
+ * 없으면 아예 아무것도 못 본다. 복사는 수백 ms면 끝난다.
+ *
+ * 스냅샷에는 생성 시점의 해시도 함께 들어 있어서, 원격이 그대로면 첫 실행에서
+ * 재다운로드도 일어나지 않는다.
+ *
+ * 실패해도 조용히 넘어간다. 빈 DB로 시작해 네트워크 동기화를 하면 되므로
+ * 여기서 앱을 죽일 이유가 없다.
+ */
+async function restoreBundledDatabase(): Promise<void> {
+  try {
+    const directory = new Directory(SQLite.defaultDatabaseDirectory);
+    const target = new File(directory, DB_NAME);
+    if (target.exists) return;
+
+    const asset = Asset.fromModule(require('../../assets/shelters.db'));
+    await asset.downloadAsync();
+    if (!asset.localUri) return;
+
+    if (!directory.exists) directory.create({ intermediates: true });
+    await new File(asset.localUri).copy(target);
+  } catch (error) {
+    console.warn('[db] 번들 DB 복사 실패, 빈 DB로 시작합니다', error);
+  }
 }
 
 /**
