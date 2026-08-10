@@ -91,6 +91,7 @@ function normalize(raw: any): Shelter {
     lng: Number(raw.lng),
     facilityType: raw.facilityType ?? null,
     capacity: raw.capacity != null ? Number(raw.capacity) : null,
+    category: raw.category ?? 'etc',
   };
 }
 

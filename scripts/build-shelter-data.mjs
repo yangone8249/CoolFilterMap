@@ -221,16 +221,46 @@ function normalize(raw) {
     return null;
   };
 
+  const name = String(pick('RSTR_NM') ?? '');
+
   return {
     id: String(pick('RSTR_FCLTY_NO') ?? ''),
-    name: String(pick('RSTR_NM') ?? ''),
+    name,
     // 도로명주소를 우선하고, 없으면 지번주소로 떨어진다.
     address: String(pick('RN_DTL_ADRES', 'DTL_ADRES') ?? ''),
     lat: Number(pick('LA')),
     lng: Number(pick('LO')),
     facilityType: pick('FCLTY_TY'),
     capacity: toIntOrNull(pick('USE_PSBL_NMPR')),
+    category: categorize(name),
   };
+}
+
+/**
+ * 앱의 필터용 분류. 원본의 FCLTY_TY는 4종뿐이라 도서관과 주민센터가 한 덩어리로
+ * 묶인다. 정작 사용자가 구분하고 싶어 하는 건 그 안쪽이라 이름으로 나눈다.
+ *
+ * 순서가 중요하다. 위에서부터 먼저 걸리는 것이 이긴다. 예를 들어 '마을회관'은
+ * '회관'보다 앞에 있어야 하고, '노인복지관'은 경로당이 아니라 복지관이다.
+ *
+ * 앱이 아니라 여기서 계산하는 이유: 앱에서 이름을 LIKE로 뒤지면 인덱스를 못 탄다.
+ */
+const CATEGORY_RULES = [
+  ['library', ['도서관']],
+  ['welfare', ['복지관', '복지회관', '복지센터', '보건소', '보건지소', '보건진료소']],
+  ['office', ['주민센터', '행정복지센터', '면사무소', '읍사무소', '동사무소', '구청', '시청', '군청']],
+  ['outdoor', ['정자', '그늘막', '파고라', '쉼팡', '무더위쉼터', '공원']],
+  ['private', ['은행', '마트', '농협', '수협', '신협', '새마을금고', '백화점', '카페', '편의점']],
+  ['culture', ['문화센터', '문화의집', '체육관', '체육센터', '미술관', '박물관', '기념관', '수영장']],
+  ['senior', ['경로당', '노인정', '노인회관', '노인교실']],
+  ['village', ['마을회관', '이장댁', '회관']],
+];
+
+function categorize(name) {
+  for (const [category, keywords] of CATEGORY_RULES) {
+    if (keywords.some((k) => name.includes(k))) return category;
+  }
+  return 'etc';
 }
 
 function toIntOrNull(v) {

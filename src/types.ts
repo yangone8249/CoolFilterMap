@@ -1,3 +1,18 @@
+/**
+ * 필터용 분류. 원본의 FCLTY_TY는 4종뿐이라 도서관과 주민센터가 한 덩어리로
+ * 묶인다. 정작 구분하고 싶은 건 그 안쪽이라 파이프라인이 이름으로 다시 나눈다.
+ */
+export type ShelterCategory =
+  | 'senior' // 경로당·노인정
+  | 'village' // 마을회관
+  | 'office' // 주민센터·행정복지센터
+  | 'library' // 도서관
+  | 'welfare' // 복지관·보건소
+  | 'private' // 은행·마트·농협
+  | 'culture' // 문화·체육·전시
+  | 'outdoor' // 정자·그늘막·공원
+  | 'etc';
+
 /** 앱 내부에서 쓰는 정규화된 쉼터 모델. 공공데이터 원본 스키마와는 분리한다. */
 export interface Shelter {
   id: string;
@@ -7,6 +22,7 @@ export interface Shelter {
   lng: number;
   facilityType: string | null;
   capacity: number | null;
+  category: ShelterCategory;
 }
 
 export interface NearbyShelter extends Shelter {

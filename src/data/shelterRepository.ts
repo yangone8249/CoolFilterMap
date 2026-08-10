@@ -1,6 +1,12 @@
 import { getDb } from './db';
 import { boundsFromRadius, haversine } from '../geo/distance';
-import type { Bounds, LatLng, NearbyShelter, Shelter } from '../types';
+import type {
+  Bounds,
+  LatLng,
+  NearbyShelter,
+  Shelter,
+  ShelterCategory,
+} from '../types';
 
 interface ShelterRow {
   id: string;
@@ -10,6 +16,7 @@ interface ShelterRow {
   lng: number;
   facility_type: string | null;
   capacity: number | null;
+  category: string;
 }
 
 const toShelter = (row: ShelterRow): Shelter => ({
@@ -20,7 +27,18 @@ const toShelter = (row: ShelterRow): Shelter => ({
   lng: row.lng,
   facilityType: row.facility_type,
   capacity: row.capacity,
+  category: row.category as ShelterCategory,
 });
+
+/**
+ * 카테고리 조건을 SQL 조각과 파라미터로 만든다.
+ * null이면 전체 조회라 조건을 붙이지 않는다.
+ */
+function categoryClause(category: ShelterCategory | null) {
+  return category
+    ? { sql: ' AND category = ?', params: [category] }
+    : { sql: '', params: [] as string[] };
+}
 
 export async function countShelters(): Promise<number> {
   const db = await getDb();
@@ -37,13 +55,17 @@ export async function countShelters(): Promise<number> {
  * 걸렸을 때 거짓말이 된다. 화면에 숫자를 보여줄 때는 이걸 쓴다.
  * 인덱스만 타므로 행을 가져오지 않아 싸다.
  */
-export async function countInBounds(bounds: Bounds): Promise<number> {
+export async function countInBounds(
+  bounds: Bounds,
+  category: ShelterCategory | null = null,
+): Promise<number> {
   const db = await getDb();
+  const c = categoryClause(category);
   const row = await db.getFirstAsync<{ n: number }>(
     `SELECT COUNT(*) AS n FROM shelters
       WHERE lat BETWEEN ? AND ?
-        AND lng BETWEEN ? AND ?`,
-    [bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng],
+        AND lng BETWEEN ? AND ?${c.sql}`,
+    [bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng, ...c.params],
   );
   return row?.n ?? 0;
 }
@@ -55,14 +77,23 @@ export async function countInBounds(bounds: Bounds): Promise<number> {
 export async function findInBounds(
   bounds: Bounds,
   limit: number,
+  category: ShelterCategory | null = null,
 ): Promise<Shelter[]> {
   const db = await getDb();
+  const c = categoryClause(category);
   const rows = await db.getAllAsync<ShelterRow>(
     `SELECT * FROM shelters
       WHERE lat BETWEEN ? AND ?
-        AND lng BETWEEN ? AND ?
+        AND lng BETWEEN ? AND ?${c.sql}
       LIMIT ?`,
-    [bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng, limit],
+    [
+      bounds.minLat,
+      bounds.maxLat,
+      bounds.minLng,
+      bounds.maxLng,
+      ...c.params,
+      limit,
+    ],
   );
   return rows.map(toShelter);
 }
@@ -89,10 +120,10 @@ export async function findNearby(
     .slice(0, limit);
 }
 
-const COLUMN_COUNT = 7;
+const COLUMN_COUNT = 8;
 /**
  * 한 INSERT에 넣을 행 수. 왕복 횟수를 줄일수록 빨라지지만 SQLite의 변수 상한에
- * 걸린다. 요즘 SQLite(3.32+)의 상한은 32766이라 7컬럼 × 500행 = 3500개면 여유가
+ * 걸린다. 요즘 SQLite(3.32+)의 상한은 32766이라 8컬럼 × 500행 = 4000개면 여유가
  * 있다. 100행일 때 6만 건에 9초가 걸렸다.
  */
 const INSERT_CHUNK = 500;
@@ -130,11 +161,13 @@ export async function replaceAllShelters(shelters: Shelter[]): Promise<void> {
           s.lng,
           s.facilityType,
           s.capacity,
+          s.category,
         );
       }
 
       await db.runAsync(
-        `INSERT INTO shelters (id, name, address, lat, lng, facility_type, capacity)
+        `INSERT INTO shelters
+           (id, name, address, lat, lng, facility_type, capacity, category)
          VALUES ${placeholders}`,
         params,
       );

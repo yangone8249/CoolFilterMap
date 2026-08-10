@@ -18,7 +18,27 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
+/**
+ * 스키마를 바꿀 때마다 올린다.
+ *
+ * 쉼터 데이터는 원격에서 다시 받으면 그만이라 ALTER로 조심스럽게 옮길 이유가
+ * 없다. 버전이 올라가면 테이블을 통째로 지우고 다시 만든다. meta도 같이 지워야
+ * 해시가 초기화되어 재동기화가 걸린다.
+ */
+const SCHEMA_VERSION = 2;
+
 async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
+  const row = await db.getFirstAsync<{ user_version: number }>(
+    'PRAGMA user_version',
+  );
+
+  if ((row?.user_version ?? 0) < SCHEMA_VERSION) {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS shelters;
+      DROP TABLE IF EXISTS meta;
+    `);
+  }
+
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
 
@@ -29,7 +49,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       lat           REAL NOT NULL,
       lng           REAL NOT NULL,
       facility_type TEXT,
-      capacity      INTEGER
+      capacity      INTEGER,
+      category      TEXT NOT NULL DEFAULT 'etc'
     );
 
     -- bounding box 조회용. lat을 선행 컬럼으로 두고 범위를 좁힌다.
@@ -41,6 +62,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       value TEXT NOT NULL
     );
   `);
+
+  await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
 export async function getMeta(key: string): Promise<string | null> {

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -19,8 +20,8 @@ import { boundsFromRegion, formatDistance, haversine } from '../geo/distance';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { useShelterData } from '../hooks/useShelterData';
 import { openDirections } from '../lib/directions';
-import { facilityTypeLabel } from '../lib/facilityType';
-import type { Shelter } from '../types';
+import { CATEGORY_FILTERS, categoryLabel } from '../lib/categories';
+import type { Shelter, ShelterCategory } from '../types';
 
 export function MapScreen() {
   const { ready, revision, count, syncResult } = useShelterData();
@@ -33,6 +34,8 @@ export function MapScreen() {
     null,
   );
   const [selected, setSelected] = useState<Shelter | null>(null);
+  /** null이면 전체 보기. 경로당이 71.7%라 필터가 없으면 나머지가 묻힌다. */
+  const [category, setCategory] = useState<ShelterCategory | null>(null);
 
   // 카메라가 멈췄을 때만 발생하므로 별도 debounce가 필요 없다.
   const handleCameraIdle = useCallback(
@@ -52,7 +55,7 @@ export function MapScreen() {
 
     (async () => {
       // 먼저 진짜 개수를 센다. 마커를 안 그릴 때도 몇 곳인지는 알려준다.
-      const total = await countInBounds(bounds);
+      const total = await countInBounds(bounds, category);
       if (cancelled) return;
       setTotalInView(total);
 
@@ -63,14 +66,14 @@ export function MapScreen() {
         return;
       }
 
-      const rows = await findInBounds(bounds, SEARCH.maxMarkers);
+      const rows = await findInBounds(bounds, SEARCH.maxMarkers, category);
       if (!cancelled) setVisible(rows);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [ready, camera, revision]);
+  }, [ready, camera, revision, category]);
 
   // 마커 수백 개를 낱개로 그리면 저사양 기기에서 프레임이 무너진다.
   // 네이티브 클러스터링에 맡기고, 탭된 leaf만 id로 되짚는다.
@@ -141,11 +144,33 @@ export function MapScreen() {
         clusters={clusters}
       />
 
-      <View style={styles.statusBar} pointerEvents="none">
-        <Text style={styles.statusText}>
-          {statusText}
-          {syncResult?.status === 'seeded-mock' ? ' · 목 데이터' : ''}
-        </Text>
+      <View style={styles.topBar}>
+        <View style={styles.statusBar} pointerEvents="none">
+          <Text style={styles.statusText}>
+            {statusText}
+            {syncResult?.status === 'seeded-mock' ? ' · 목 데이터' : ''}
+          </Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+        >
+          <CategoryChip
+            label="전체"
+            active={category === null}
+            onPress={() => setCategory(null)}
+          />
+          {CATEGORY_FILTERS.map(({ key, label }) => (
+            <CategoryChip
+              key={key}
+              label={label}
+              active={category === key}
+              onPress={() => setCategory(category === key ? null : key)}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       {selected && (
@@ -154,7 +179,7 @@ export function MapScreen() {
           <Text style={styles.sheetBody}>{selected.address}</Text>
           <Text style={styles.sheetMeta}>
             {[
-              facilityTypeLabel(selected.facilityType),
+              categoryLabel(selected.category),
               selected.capacity ? `최대 ${selected.capacity}명` : null,
               distance != null ? formatDistance(distance) : null,
             ]
@@ -175,12 +200,34 @@ export function MapScreen() {
   );
 }
 
+function CategoryChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[styles.chip, active && styles.chipActive]}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  topBar: { position: 'absolute', top: 56, left: 0, right: 0, gap: 8 },
   statusBar: {
-    position: 'absolute',
-    top: 56,
     alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 12,
@@ -188,6 +235,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   statusText: { color: '#fff', fontSize: 12 },
+  chipRow: { paddingHorizontal: 12, gap: 6 },
+  chip: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  chipActive: { backgroundColor: '#0068c3' },
+  chipText: { fontSize: 13, color: '#333', fontWeight: '500' },
+  chipTextActive: { color: '#fff' },
   sheet: {
     position: 'absolute',
     left: 16,
