@@ -161,6 +161,50 @@ async function fetchAllRows() {
   return all;
 }
 
+const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_ATTEMPTS = 4;
+
+/**
+ * 62페이지를 순차로 받는 동안 한 번만 실패해도 전체가 죽는다. GitHub Actions
+ * 러너는 해외에 있어 국내 서버와의 연결이 간헐적으로 끊기므로 재시도한다.
+ */
+async function fetchWithRetry(url) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fetch(url, {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `  요청 실패 (${attempt}/${MAX_ATTEMPTS}): ${describeError(error)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
+  }
+
+  fail(`${MAX_ATTEMPTS}회 재시도 후 실패: ${describeError(lastError)}`);
+}
+
+/**
+ * Node의 fetch는 실제 원인을 error.cause에 숨기고 겉은 'fetch failed'만 남긴다.
+ * 원인 체인을 끝까지 펼쳐야 ENOTFOUND인지 인증서 문제인지 알 수 있다.
+ */
+function describeError(error) {
+  const parts = [];
+  let e = error;
+  while (e) {
+    const code = e.code ? ` (${e.code})` : '';
+    parts.push(`${e.name ?? 'Error'}: ${e.message}${code}`);
+    e = e.cause;
+  }
+  return parts.join(' ← ');
+}
+
 async function fetchPage(pageNo) {
   const url = new URL(API_URL);
   // serviceKey는 이미 인코딩된 형태로 발급되므로 재인코딩하지 않는다.
@@ -171,7 +215,7 @@ async function fetchPage(pageNo) {
   }).toString();
   const withKey = `${url.toString()}&serviceKey=${SERVICE_KEY}`;
 
-  const res = await fetch(withKey);
+  const res = await fetchWithRetry(withKey);
   // 실패 사유는 본문에 담겨 온다. 상태 코드만 보고 죽으면 원인을 알 수 없다.
   const text = await res.text();
 
@@ -331,9 +375,10 @@ function fail(message) {
 // 직접 실행할 때만 돈다. 테스트에서 개별 함수를 가져다 쓸 수 있도록.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    console.error(`✗ ${error.message}`);
+    // message만 찍으면 'fetch failed'로 끝나 원인을 알 수 없다.
+    console.error(`✗ ${describeError(error)}`);
     process.exitCode = 1;
   });
 }
 
-export { extractRows, normalize, isUsable };
+export { extractRows, normalize, isUsable, categorize, describeError };
