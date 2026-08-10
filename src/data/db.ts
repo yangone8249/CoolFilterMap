@@ -35,20 +35,37 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
  * 여기서 앱을 죽일 이유가 없다.
  */
 async function restoreBundledDatabase(): Promise<void> {
+  const dbDirectory = SQLite.defaultDatabaseDirectory;
+  let assetUri: string | null = null;
+
   try {
-    const directory = new Directory(SQLite.defaultDatabaseDirectory);
+    // defaultDatabaseDirectory는 스킴 없는 경로(/data/user/0/...)로 오는데
+    // File/Directory는 file:// URI를 요구해 'URI is not absolute'로 죽는다.
+    const directory = new Directory(toFileUri(dbDirectory));
     const target = new File(directory, DB_NAME);
     if (target.exists) return;
 
     const asset = Asset.fromModule(require('../../assets/shelters.db'));
     await asset.downloadAsync();
-    if (!asset.localUri) return;
+    assetUri = asset.localUri;
+    if (!assetUri) return;
 
     if (!directory.exists) directory.create({ intermediates: true });
-    await new File(asset.localUri).copy(target);
+    await new File(toFileUri(assetUri)).copy(target);
+    console.log('[db] 번들 DB 복사 완료');
   } catch (error) {
-    console.warn('[db] 번들 DB 복사 실패, 빈 DB로 시작합니다', error);
+    // 빈 DB로 시작해 네트워크 동기화로 떨어지면 되므로 앱을 죽이지 않는다.
+    console.warn(
+      `[db] 번들 DB 복사 실패, 빈 DB로 시작합니다 ` +
+        `(dbDir=${dbDirectory} asset=${assetUri})`,
+      error,
+    );
   }
+}
+
+function toFileUri(pathOrUri: string): string {
+  if (pathOrUri.startsWith('file://')) return pathOrUri;
+  return `file://${pathOrUri}`;
 }
 
 /**
