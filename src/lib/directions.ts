@@ -18,11 +18,13 @@ export async function openDirections(shelter: Shelter): Promise<boolean> {
   const encodedName = encodeURIComponent(name);
 
   const candidates = [
-    // 네이버지도 앱 — 대중교통 경로
-    `nmap://route/public?dlat=${lat}&dlng=${lng}&dname=${encodedName}&appname=${APP_NAME}`,
-    // 카카오맵 앱
-    `kakaomap://route?ep=${lat},${lng}&by=PUBLICTRANSIT`,
+    // 네이버지도 앱 — 도보 경로.
+    // 쉼터는 대부분 걸어갈 거리라 대중교통(route/public)보다 도보가 맞다.
+    `nmap://route/walk?dlat=${lat}&dlng=${lng}&dname=${encodedName}&appname=${APP_NAME}`,
+    // 카카오맵 앱 — 도보(by=FOOT)
+    `kakaomap://route?ep=${lat},${lng}&by=FOOT`,
     // 둘 다 없으면 웹으로. 앱 미설치 사용자도 길찾기는 되어야 한다.
+    // 웹 링크는 이동수단을 지정할 수 없어 사용자가 화면에서 고른다.
     `https://map.kakao.com/link/to/${encodedName},${lat},${lng}`,
   ];
 
