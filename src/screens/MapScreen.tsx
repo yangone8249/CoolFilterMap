@@ -15,6 +15,7 @@ import { boundsFromRegion, formatDistance, haversine } from '../geo/distance';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { useShelterData } from '../hooks/useShelterData';
 import { openDirections } from '../lib/directions';
+import { facilityTypeLabel } from '../lib/facilityType';
 import type { Shelter } from '../types';
 
 export function MapScreen() {
@@ -121,7 +122,7 @@ export function MapScreen() {
           <Text style={styles.sheetBody}>{selected.address}</Text>
           <Text style={styles.sheetMeta}>
             {[
-              selected.facilityType,
+              facilityTypeLabel(selected.facilityType),
               selected.capacity ? `최대 ${selected.capacity}명` : null,
               distance != null ? formatDistance(distance) : null,
             ]
