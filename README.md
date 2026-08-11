@@ -14,7 +14,7 @@
 | 로컬 저장 | expo-sqlite |
 | 위치 | expo-location |
 | 데이터 수집 | GitHub Actions (cron), GitHub Pages |
-| 길찾기 | 네이버지도 / 카카오맵 딥링크 |
+| 길찾기 | 네이버지도 API / 카카오맵 딥링크 |
 
 
 ## 구조
