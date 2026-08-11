@@ -13,11 +13,9 @@
 | 지도 | 네이버 지도 SDK (`@mj-studio/react-native-naver-map`) |
 | 로컬 저장 | expo-sqlite |
 | 위치 | expo-location |
-| 데이터 수집 | GitHub Actions (cron) · Node |
-| 데이터 호스팅 | GitHub Pages |
+| 데이터 수집 | GitHub Actions (cron), GitHub Pages |
 | 길찾기 | 네이버지도 / 카카오맵 딥링크 |
 
-상시 운영하는 백엔드가 없다. 전부 무료 한도 안에서 돌아간다.
 
 ## 구조
 
