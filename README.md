@@ -5,7 +5,7 @@
 **[APK 내려받기](https://github.com/yangone8249/CoolFilterMap/releases/latest)**
 · Android 7.0+ · arm64
 
-## 스택
+## 사용 기술
 
 | 영역 | 사용 |
 |---|---|
