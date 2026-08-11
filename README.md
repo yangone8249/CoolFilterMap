@@ -1,6 +1,6 @@
 # CoolFilterMap
 
-전국 무더위쉼터 **61,362곳**을 지도에서 찾고 도보 길찾기로 연결하는 안드로이드 앱.
+전국 무더위쉼터 **약 6만여 곳**을 지도에서 찾고 도보 길찾기로 연결하는 안드로이드 앱.
 
 **[APK 내려받기](https://github.com/yangone8249/CoolFilterMap/releases/latest)**
 · Android 7.0+ · arm64
