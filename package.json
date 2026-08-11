@@ -27,7 +27,8 @@
     "data:build": "node scripts/build-shelter-data.mjs",
     "data:inspect": "node scripts/build-shelter-data.mjs --inspect",
     "data:mock": "node scripts/build-shelter-data.mjs --mock",
-    "bundle:db": "node scripts/build-bundled-db.mjs"
+    "bundle:db": "node scripts/build-bundled-db.mjs",
+    "build:apk": "npm run bundle:db && node scripts/build-apk.mjs"
   },
   "private": true
 }

@@ -196,14 +196,42 @@ keytool -genkeypair -v -storetype PKCS12 -keystore release.keystore -alias coolf
 ### 빌드
 
 ```bash
-npm run bundle:db && npx expo run:android --variant release
+npm run build:apk
 ```
 
-`bundle:db`를 먼저 돌려 번들 스냅샷을 최신으로 맞춘다. 결과물은
-`android/app/build/outputs/apk/release/app-release.apk`에 나온다.
+번들 스냅샷을 갱신한 뒤 릴리스 APK를 만든다. 결과물은
+`android/app/build/outputs/apk/release/app-release.apk`.
 
 `keystore.properties`가 없으면 디버그 키로 서명된다. 개발 중에는 그래도 되지만
 배포용으로는 쓸 수 없다.
+
+**arm64-v8a만 빌드한다.** 기본값은 4개 아키텍처를 전부 담아 APK가 170MB까지
+부푼다. arm64만 담으면 56MB이고, 요즘 안드로이드 기기는 사실상 전부 arm64다.
+
+APK 구성(56MB 기준):
+
+| | 크기 | 비중 |
+|---|---|---|
+| `libnavermap.so` | 23.6MB | 42% |
+| `libreactnative.so` | 6.7MB | 12% |
+| dex (앱 코드) | 7.6MB | 14% |
+| 번들 DB | 4.0MB | 7% |
+| JS 번들 | 1.4MB | 2% |
+
+네이버 지도 SDK가 절반 가까이 차지한다. `.so`가 압축되지 않은 것은 정상이다.
+요즘 안드로이드는 압축하지 않아야 메모리에 직접 매핑할 수 있어 설치 용량과
+실행 메모리가 줄어든다.
+
+### APK에 무엇이 들어가나
+
+빌드된 APK를 뜯어서 확인한 결과다.
+
+| 값 | APK 안 | |
+|---|---|---|
+| 공공데이터 서비스키 | **없음** | GitHub Secrets에만 있다 |
+| keystore 비밀번호 | **없음** | 서명은 빌드 시점에만. APK에는 공개 인증서만 들어간다 |
+| 네이버 Client ID | 있음 | 숨길 수 없다. NCP에 등록한 패키지명으로 제한해 방어한다 |
+| manifest URL | 있음 | 공개 URL이라 무방 |
 
 ### 서명 설정은 왜 플러그인인가
 
