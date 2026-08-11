@@ -35,6 +35,11 @@ yarn-error.*
 .env*.local
 !.env.example
 
+# 서명 키와 비밀번호. 유출되면 남이 내 앱 이름으로 서명할 수 있다.
+credentials.json
+keystore.properties
+*.keystore
+
 # typescript
 *.tsbuildinfo
 

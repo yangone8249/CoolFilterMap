@@ -28,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // 플러그인은 여기가 단일 소스다. `npx expo install`이 app.json에 플러그인을
   // 추가하더라도 이 배열이 덮어쓰므로, 새 플러그인은 이쪽으로 옮겨야 한다.
   plugins: [
+    './plugins/withReleaseSigning',
     'expo-sqlite',
     'expo-dev-client',
     ['expo-build-properties', { android: { extraMavenRepos: [NAVER_MAVEN_REPO] } }],

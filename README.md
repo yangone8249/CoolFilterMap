@@ -175,6 +175,45 @@ npx expo start --dev-client
 확인할 때 `curl http://localhost:8081/status`는 Windows가 `::1`로 먼저 해석해서
 성공해버린다. **`127.0.0.1`로 확인해야** 이 문제가 드러난다.
 
+## 릴리스 빌드
+
+개발 빌드는 Metro 서버가 있어야 돌지만, 릴리스 빌드는 JS가 APK 안에 들어가
+혼자 동작한다. 배포하려면 이쪽이어야 한다.
+
+### 서명 키 만들기 (최초 1회)
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 -keystore release.keystore -alias coolfiltermap -keyalg RSA -keysize 2048 -validity 10000
+```
+
+프로젝트 루트에서 실행한다. 비밀번호를 두 번 묻는다.
+
+> ⚠️ **이 파일을 잃어버리면 같은 앱으로 업데이트를 낼 수 없다.** 스토어에 올린
+> 뒤라면 앱을 새로 등록해야 한다. 안전한 곳에 백업할 것. git에는 올라가지 않는다.
+
+`keystore.properties.example`을 `keystore.properties`로 복사하고 값을 채운다.
+
+### 빌드
+
+```bash
+npm run bundle:db && npx expo run:android --variant release
+```
+
+`bundle:db`를 먼저 돌려 번들 스냅샷을 최신으로 맞춘다. 결과물은
+`android/app/build/outputs/apk/release/app-release.apk`에 나온다.
+
+`keystore.properties`가 없으면 디버그 키로 서명된다. 개발 중에는 그래도 되지만
+배포용으로는 쓸 수 없다.
+
+### 서명 설정은 왜 플러그인인가
+
+`android/`는 `prebuild --clean`이 통째로 다시 만드는 폴더다. 거기에 서명 설정을
+직접 넣으면 날아간다. `plugins/withReleaseSigning.js`가 prebuild 때마다
+`app/build.gradle`에 주입하므로 설정이 유지된다.
+
+비밀번호는 build.gradle에 박히지 않는다. gradle이 빌드 시점에
+`keystore.properties`를 읽게만 해뒀다.
+
 ## 데이터 파이프라인
 
 ### 스키마 확인 (가장 먼저 할 것)
